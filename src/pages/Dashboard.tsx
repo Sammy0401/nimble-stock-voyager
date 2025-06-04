@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Play, Pause, RotateCcw } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import StockSelector from '@/components/StockSelector';
 
 interface StockData {
   timestamp: string;
@@ -22,6 +22,7 @@ interface StockData {
 
 const Dashboard = () => {
   const [selectedTimeframe, setSelectedTimeframe] = useState('1min');
+  const [selectedStock, setSelectedStock] = useState('AAPL');
   const [playbackSpeed, setPlaybackSpeed] = useState([1]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -36,20 +37,8 @@ const Dashboard = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Try to load data from different possible file locations
-        const possibleFiles = [
-          `/New Folder/${selectedTimeframe}_data.csv`,
-          `/New Folder/${selectedTimeframe}.csv`,
-          `/New Folder/stock_data_${selectedTimeframe}.csv`,
-          `/dataset/${selectedTimeframe}_data.csv`,
-          `/dataset.zip/${selectedTimeframe}_data.csv`
-        ];
-
-        let loadedData: StockData[] = [];
-        
-        // For now, we'll generate sample data as we can't directly access the uploaded files
-        // In a real implementation, you'd parse the CSV files
-        loadedData = generateSampleData(selectedTimeframe);
+        // Generate sample data based on selected stock and timeframe
+        const loadedData = generateSampleData(selectedTimeframe, selectedStock);
         
         setStockData(loadedData);
         setDisplayData(loadedData.slice(0, 50)); // Start with first 50 data points
@@ -57,7 +46,7 @@ const Dashboard = () => {
       } catch (error) {
         console.error('Error loading data:', error);
         // Generate sample data as fallback
-        const sampleData = generateSampleData(selectedTimeframe);
+        const sampleData = generateSampleData(selectedTimeframe, selectedStock);
         setStockData(sampleData);
         setDisplayData(sampleData.slice(0, 50));
         setCurrentIndex(50);
@@ -66,12 +55,24 @@ const Dashboard = () => {
     };
 
     loadData();
-  }, [selectedTimeframe]);
+  }, [selectedTimeframe, selectedStock]);
 
   // Generate sample stock data for demonstration
-  const generateSampleData = (timeframe: string): StockData[] => {
+  const generateSampleData = (timeframe: string, stock: string): StockData[] => {
     const data: StockData[] = [];
-    const basePrice = 100;
+    
+    // Different base prices for different stocks
+    const basePrices: { [key: string]: number } = {
+      'AAPL': 180,
+      'GOOGL': 140,
+      'MSFT': 350,
+      'AMZN': 150,
+      'TSLA': 250,
+      'NVDA': 450,
+      'SPY': 420
+    };
+    
+    const basePrice = basePrices[stock] || 100;
     let currentPrice = basePrice;
     
     const intervals = {
@@ -87,10 +88,10 @@ const Dashboard = () => {
       const timestamp = new Date(Date.now() - (dataPoints - i) * 60000).toISOString();
       const volatility = Math.random() * 2 - 1; // -1 to 1
       const open = currentPrice;
-      const change = volatility * 0.5;
+      const change = volatility * (basePrice * 0.01); // 1% volatility relative to base price
       const close = open + change;
-      const high = Math.max(open, close) + Math.random() * 0.3;
-      const low = Math.min(open, close) - Math.random() * 0.3;
+      const high = Math.max(open, close) + Math.random() * (basePrice * 0.003);
+      const low = Math.min(open, close) - Math.random() * (basePrice * 0.003);
       const volume = Math.floor(Math.random() * 10000) + 1000;
 
       data.push({
@@ -146,7 +147,7 @@ const Dashboard = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4">Loading Stock Data...</h2>
-          <p className="text-gray-600">Processing {selectedTimeframe} timeframe data</p>
+          <p className="text-gray-600">Processing {selectedStock} {selectedTimeframe} timeframe data</p>
         </div>
       </div>
     );
@@ -167,6 +168,12 @@ const Dashboard = () => {
             <CardTitle>Playback Controls</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Stock Selection */}
+            <StockSelector 
+              selectedStock={selectedStock} 
+              onStockChange={setSelectedStock} 
+            />
+
             {/* Timeframe Selection */}
             <div>
               <label className="text-sm font-medium mb-3 block">Time Frequency</label>
@@ -221,7 +228,7 @@ const Dashboard = () => {
         {/* Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Price Chart - {selectedTimeframe}</CardTitle>
+            <CardTitle>{selectedStock} Price Chart - {selectedTimeframe}</CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[400px]">
